@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Daylight Protocol",
+  "description": "An interactive Game Design Document and puzzle prototype studio for Daylight Protocol, featuring playable simulation environments, modular mechanics, a character animator, and a live AI Director sandbox powered by Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
