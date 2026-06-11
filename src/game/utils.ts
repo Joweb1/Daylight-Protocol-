@@ -91,10 +91,27 @@ export function computeSunRayPath(
 }
 
 /**
- * STAGE 1: Puzzle Generation Orchestrator
- * Simulates AI Architect blueprinting a level.
+ * STAGE 1: Puzzle Generation Orchestrator (Async API call)
  */
-export function generatePuzzleBlueprint(knowledgeLevel: number): PuzzleBlueprint {
+export async function generatePuzzleBlueprint(knowledgeLevel: number): Promise<PuzzleBlueprint> {
+  try {
+    const response = await fetch('/api/puzzle-architect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ knowledgeLevel })
+    });
+    if (!response.ok) throw new Error('Network response was not ok');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to fetch blueprint, using local fallback:', error);
+    return generateLocalFallbackBlueprint(knowledgeLevel);
+  }
+}
+
+/**
+ * Local Fallback Blueprint Generator
+ */
+export function generateLocalFallbackBlueprint(knowledgeLevel: number): PuzzleBlueprint {
   let difficulty: PuzzleBlueprint['difficulty'] = 'Easy';
   if (knowledgeLevel > 30) difficulty = 'Medium';
   if (knowledgeLevel > 60) difficulty = 'Hard';
@@ -118,8 +135,6 @@ export function generatePuzzleBlueprint(knowledgeLevel: number): PuzzleBlueprint
 
   const required_mirrors = Array.from({ length: requiredCount }, (_, i) => `M${i + 1}`);
   const decoy_mirrors = Array.from({ length: decoyCount }, (_, i) => `D${i + 1}`);
-  
-  // Create a logical chain sequence
   const solution_path = [...required_mirrors];
 
   return {
@@ -134,16 +149,14 @@ export function generatePuzzleBlueprint(knowledgeLevel: number): PuzzleBlueprint
     estimated_moves: requiredCount * 2,
     difficulty_score: Math.floor(knowledgeLevel),
     design_notes: [
-      `Generated for Knowledge Level ${Math.floor(knowledgeLevel)}`,
-      `Requires ${requiredCount} reflections`,
-      difficulty === 'Easy' ? 'Straightforward path' : 'Complex spatial navigation required'
+      `Local Fallback Blueprint (Knowledge: ${Math.floor(knowledgeLevel)})`,
+      `Requires ${requiredCount} reflections`
     ]
   };
 }
 
 /**
  * STAGE 2: Physics Layout Generator
- * Realizes the blueprint into physical coordinates and validated laws of reflection.
  */
 export function realizeBlueprint(
   blueprint: PuzzleBlueprint,
@@ -152,7 +165,6 @@ export function realizeBlueprint(
   const margin = 80;
   const usableSize = viewBoxSize - margin * 2;
   
-  // 1. Calculate Exact Source Position
   const sunPos = { 
     x: margin, 
     y: margin + Math.random() * usableSize 
@@ -162,14 +174,12 @@ export function realizeBlueprint(
   let currentPos = { ...sunPos };
   let currentDir = { x: 1, y: 0 }; 
   
-  // 2. Calculate Mirror Coordinates and Solve Paths
   blueprint.solution_path.forEach((id, index) => {
     const segmentDist = (usableSize / (blueprint.solution_path.length + 1)) * (0.7 + Math.random() * 0.6);
     
     let nextX = currentPos.x + currentDir.x * segmentDist;
     let nextY = currentPos.y + currentDir.y * segmentDist;
     
-    // Boundary bounce awareness
     if (nextX < margin || nextX > viewBoxSize - margin) {
        currentDir.x *= -1;
        nextX = currentPos.x + currentDir.x * segmentDist;
@@ -181,7 +191,6 @@ export function realizeBlueprint(
 
     const mirrorPos = { x: nextX, y: nextY };
     
-    // Choose next direction
     const angle = (Math.random() - 0.5) * Math.PI * 1.3;
     const nextDir = { x: Math.cos(angle), y: Math.sin(angle) };
     if (mirrorPos.x < viewBoxSize / 2) nextDir.x = Math.abs(nextDir.x);
@@ -190,7 +199,7 @@ export function realizeBlueprint(
       id: parseInt(id.substring(1)) || index,
       x: mirrorPos.x,
       y: mirrorPos.y,
-      rotation: Math.random() * 360, // Scrambled for player
+      rotation: Math.random() * 360,
       size: 50
     });
 
@@ -198,14 +207,12 @@ export function realizeBlueprint(
     currentDir = nextDir;
   });
 
-  // 3. Calculate Final Target Position
   const goalDist = 80;
   const goalPos = {
     x: Math.max(margin, Math.min(viewBoxSize - margin, currentPos.x + currentDir.x * goalDist)),
     y: Math.max(margin, Math.min(viewBoxSize - margin, currentPos.y + currentDir.y * goalDist))
   };
 
-  // 4. Add Decoy Mirrors
   blueprint.decoy_mirrors.forEach((id, index) => {
     let rx, ry, tooClose;
     let attempts = 0;
@@ -231,18 +238,17 @@ export function realizeBlueprint(
 }
 
 /**
- * OLD Generator (deprecated but kept for fallback/reference if needed)
+ * Deprecated wrapper for backwards compatibility
  */
-export function generateSolvableMirrorChain(
+export async function generateSolvableMirrorChain(
   viewBoxSize: number,
   requiredMirrors: number,
   distractorCount: number = 0
 ) {
-  const blueprint = generatePuzzleBlueprint((requiredMirrors + distractorCount) * 10);
+  const blueprint = await generatePuzzleBlueprint((requiredMirrors + distractorCount) * 10);
   return realizeBlueprint(blueprint, viewBoxSize);
 }
 
-// Spatial overlap check for entities
 export function getRandomNonOverlappingPosition(
   existingNodes: GameChallengeNode[],
   npcs: GameNPC[],

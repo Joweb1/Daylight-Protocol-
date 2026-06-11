@@ -222,15 +222,15 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
     }
   }, [bindCanvasInteraction]);
 
-  const handleAcceptChallenge = (node: GameChallengeNode) => {
+  const handleAcceptChallenge = async (node: GameChallengeNode) => {
     setActiveInviteNode(null);
     const knowledgeLevel = (stats.knowledgeScore / KNOWLEDGE_CAP) * 100;
     
     if (node.type === 'reflection') {
       const knowledgeLevel = (stats.knowledgeScore / KNOWLEDGE_CAP) * 100;
       
-      // STAGE 1: AI ORCHESTRATOR (Designing the blueprint)
-      const blueprint = generatePuzzleBlueprint(knowledgeLevel);
+      // STAGE 1: AI ORCHESTRATOR (Designing the blueprint via Gemini API)
+      const blueprint = await generatePuzzleBlueprint(knowledgeLevel);
       
       const viewBoxSize = blueprint.room_size === 'Large' ? 600 : 400;
 

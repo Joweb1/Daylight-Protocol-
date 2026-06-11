@@ -222,6 +222,89 @@ Use this telemetry packet to:
 });
 
 // ==========================================
+// API ROUTES: PUZZLE ARCHITECT ENDPOINT
+// ==========================================
+app.post('/api/puzzle-architect', async (req, res) => {
+  const { knowledgeLevel } = req.body;
+
+  const systemInstruction = `You are a professional puzzle architect for a laser reflection game called 'Daylight Protocol'.
+Your role is to generate a high-level puzzle blueprint. 
+Do NOT generate coordinates. 
+Focus on difficulty, topology, and the logical chain of mirrors.
+The solution path is a sequence of mirror IDs (e.g., M1 -> M3 -> M2).
+Decoy mirrors are distractors that make the puzzle harder.`;
+
+  const userPrompt = `Generate a puzzle blueprint for a player with Knowledge Level: ${knowledgeLevel}.
+Difficulty should scale based on this level:
+0-30: Easy (2-3 mirrors, 0 decoys)
+31-60: Medium (4-5 mirrors, 1-2 decoys)
+61-85: Hard (6-8 mirrors, 3-4 decoys)
+86-100: Expert (10+ mirrors, 5+ decoys)`;
+
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    // Fallback blueprint generation
+    const difficulty = knowledgeLevel > 85 ? 'Expert' : (knowledgeLevel > 60 ? 'Hard' : (knowledgeLevel > 30 ? 'Medium' : 'Easy'));
+    const requiredCount = { 'Easy': 2, 'Medium': 4, 'Hard': 7, 'Expert': 11 }[difficulty];
+    const decoyCount = { 'Easy': 0, 'Medium': 1, 'Hard': 3, 'Expert': 5 }[difficulty];
+
+    return res.json({
+      difficulty,
+      room_size: knowledgeLevel > 50 ? 'Large' : 'Medium',
+      source_position: 'Left Wall',
+      target_position: 'Variable',
+      required_mirrors: Array.from({ length: requiredCount }, (_, i) => `M${i + 1}`),
+      solution_path: Array.from({ length: requiredCount }, (_, i) => `M${i + 1}`),
+      decoy_mirrors: Array.from({ length: decoyCount }, (_, i) => `D${i + 1}`),
+      topology: difficulty === 'Easy' ? 'Direct' : 'Zigzag',
+      estimated_moves: requiredCount * 2,
+      difficulty_score: Math.floor(knowledgeLevel),
+      design_notes: ["Fallback: Gemini API Key missing.", `Generated for Knowledge Level ${knowledgeLevel}`]
+    });
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: userPrompt,
+      config: {
+        systemInstruction: systemInstruction,
+        temperature: 0.8,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            difficulty: { type: Type.STRING },
+            room_size: { type: Type.STRING },
+            source_position: { type: Type.STRING },
+            target_position: { type: Type.STRING },
+            required_mirrors: { type: Type.ARRAY, items: { type: Type.STRING } },
+            solution_path: { type: Type.ARRAY, items: { type: Type.STRING } },
+            decoy_mirrors: { type: Type.ARRAY, items: { type: Type.STRING } },
+            topology: { type: Type.STRING },
+            estimated_moves: { type: Type.INTEGER },
+            difficulty_score: { type: Type.INTEGER },
+            design_notes: { type: Type.ARRAY, items: { type: Type.STRING } },
+          },
+          required: [
+            'difficulty', 'room_size', 'source_position', 'target_position', 
+            'required_mirrors', 'solution_path', 'decoy_mirrors', 'topology',
+            'estimated_moves', 'difficulty_score', 'design_notes'
+          ],
+        },
+      },
+    });
+
+    const parsedData = JSON.parse(response.text || '{}');
+    return res.json(parsedData);
+  } catch (error: any) {
+    console.error('Gemini Puzzle Architect failed:', error);
+    return res.status(502).json({ error: 'Failed to generate puzzle blueprint.' });
+  }
+});
+
+// ==========================================
 // FULL STACK ROUTING LAYER
 // ==========================================
 async function startServer() {
