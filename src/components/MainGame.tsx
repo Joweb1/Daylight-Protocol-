@@ -213,7 +213,14 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
     setTimeout(() => setActionNotify(null), 2500);
   }, [addLog, modifyScore, triggerChime, isAudioMuted, npcsRef, challengeNodesRef, playerRef]);
 
-  const { keysPressed, joystickRef, handleJoystickStart } = useGameInput(handleInteract);
+  const { keysPressed, joystickRef, handleJoystickStart, bindCanvasInteraction } = useGameInput(handleInteract);
+
+  // Bind mouse/touch canvas movement
+  useEffect(() => {
+    if (canvasRef.current) {
+      return bindCanvasInteraction(canvasRef.current, playerRef);
+    }
+  }, [bindCanvasInteraction]);
 
   const handleAcceptChallenge = (node: GameChallengeNode) => {
     setActiveInviteNode(null);
@@ -237,12 +244,24 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
       const goalTypes: ('door' | 'meat' | 'fish' | 'pot')[] = ['door', 'meat', 'fish', 'pot'];
       const targetType = goalTypes[Math.floor(Math.random() * goalTypes.length)];
 
+      // Ensure Sun and Goal are not on the same axis and have distance
+      const sunX = 50 + Math.random() * 50;
+      const sunY = 50 + Math.random() * (viewBoxSize - 100);
+      const goalX = viewBoxSize - 100 + Math.random() * 50;
+      let goalY = 50 + Math.random() * (viewBoxSize - 100);
+      
+      // Prevent same horizontal line
+      if (Math.abs(goalY - sunY) < 100) {
+        goalY = (sunY + 200) % (viewBoxSize - 100);
+        if (goalY < 50) goalY = 50;
+      }
+
       setActivePuzzle({
         nodeId: node.id,
         type: 'reflection',
         targetType,
-        sunPos: { x: 40, y: viewBoxSize / 2 },
-        goalPos: { x: viewBoxSize - 40, y: viewBoxSize / 2 },
+        sunPos: { x: sunX, y: sunY },
+        goalPos: { x: goalX, y: goalY },
         mirrors,
         solved: false,
         viewBoxSize

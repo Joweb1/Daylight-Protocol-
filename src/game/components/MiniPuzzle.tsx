@@ -27,7 +27,7 @@ export default function MiniPuzzle({
 
   const isReflection = activePuzzle.type === 'reflection';
   
-  // Memoize path calculation for performance and stability
+  // Memoize path calculation
   const sunPath = useMemo(() => {
     if (!isReflection) return { path: [], solved: false };
     return computeSunRayPath(
@@ -38,21 +38,24 @@ export default function MiniPuzzle({
     );
   }, [activePuzzle.sunPos, activePuzzle.goalPos, activePuzzle.mirrors, activePuzzle.viewBoxSize, isReflection]);
 
-  // Sync solved state
+  // Sync solved state - locking when hit
   useEffect(() => {
-    if (isReflection && sunPath.solved !== activePuzzle.solved) {
-      handleUpdatePuzzle({ ...activePuzzle, solved: sunPath.solved });
+    if (isReflection && sunPath.solved && !activePuzzle.solved) {
+      handleUpdatePuzzle({ ...activePuzzle, solved: true });
     }
   }, [sunPath.solved, activePuzzle.solved, handleUpdatePuzzle, isReflection]);
 
   // DRAG ROTATION LOGIC
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent, id: number) => {
+    // LOCK ROTATION IF SOLVED
+    if (activePuzzle.solved) return;
+    
     if (e.cancelable) e.preventDefault();
     setDragMirrorId(id);
   };
 
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
-    if (dragMirrorId === null || !svgRef.current) return;
+    if (dragMirrorId === null || !svgRef.current || activePuzzle.solved) return;
 
     const svg = svgRef.current;
     const CTM = svg.getScreenCTM();
@@ -78,7 +81,7 @@ export default function MiniPuzzle({
     );
 
     handleUpdatePuzzle({ ...activePuzzle, mirrors: nextMirrors });
-  }, [dragMirrorId, activePuzzle.mirrors, handleUpdatePuzzle]);
+  }, [dragMirrorId, activePuzzle.mirrors, activePuzzle.solved, handleUpdatePuzzle]);
 
   const handleMouseUp = useCallback(() => {
     setDragMirrorId(null);
@@ -138,7 +141,7 @@ export default function MiniPuzzle({
               width="100%" 
               height="100%" 
               viewBox={`0 0 ${activePuzzle.viewBoxSize} ${activePuzzle.viewBoxSize}`}
-              className="bg-black/90 border border-white/10 rounded-2xl overflow-hidden touch-none"
+              className={`bg-black/90 border border-white/10 rounded-2xl overflow-hidden touch-none ${activePuzzle.solved ? 'opacity-80' : ''}`}
             >
               <defs>
                 <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -176,27 +179,27 @@ export default function MiniPuzzle({
                   transform={`translate(${m.x}, ${m.y}) rotate(${m.rotation})`}
                   onMouseDown={(e) => handleMouseDown(e, m.id)}
                   onTouchStart={(e) => handleMouseDown(e, m.id)}
-                  className="cursor-move group"
+                  className={`${activePuzzle.solved ? 'cursor-default' : 'cursor-move group'}`}
                 >
                   <circle r="45" fill="transparent" />
                   <line 
                     x1={-m.size/2} y1="0" x2={m.size/2} y2="0" 
-                    stroke="#4af3ff" strokeWidth="8" strokeLinecap="round" 
+                    stroke={activePuzzle.solved ? "rgba(74, 243, 255, 0.4)" : "#4af3ff"} strokeWidth="8" strokeLinecap="round" 
                     className="group-hover:stroke-white transition-colors"
                   />
                   <line 
                     x1={-m.size/2} y1="0" x2={m.size/2} y2="0" 
-                    stroke="white" strokeWidth="2" strokeLinecap="round" 
+                    stroke={activePuzzle.solved ? "rgba(255,255,255,0.4)" : "white"} strokeWidth="2" strokeLinecap="round" 
                   />
-                  <circle cx={m.size/2} cy="0" r="5" fill="#f59e0b" />
-                  <circle cx={-m.size/2} cy="0" r="5" fill="#f59e0b" />
+                  <circle cx={m.size/2} cy="0" r="5" fill={activePuzzle.solved ? "rgba(245, 158, 11, 0.4)" : "#f59e0b"} />
+                  <circle cx={-m.size/2} cy="0" r="5" fill={activePuzzle.solved ? "rgba(245, 158, 11, 0.4)" : "#f59e0b"} />
                 </g>
               ))}
             </svg>
             
             <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2 py-1 bg-black/60 rounded-lg text-[8px] sm:text-[9px] font-mono text-zinc-400 border border-white/5">
               <HelpCircle className="w-3 h-3 text-orange-400" />
-              DRAG MIRRORS TO ROTATE
+              {activePuzzle.solved ? "CALIBRATION LOCKED" : "DRAG MIRRORS TO ROTATE"}
             </div>
           </div>
         ) : (
@@ -239,10 +242,11 @@ export default function MiniPuzzle({
           <div className="space-y-3">
             <div className="bg-white/5 p-3 rounded-xl border border-white/5">
               <p className="text-[11px] text-slate-200 font-mono leading-relaxed">
-                {isReflection 
+                {activePuzzle.solved ? "Sync achieved. Harness the solar residue to expand your consciousness." : (
+                  isReflection 
                   ? "SOL-0, the grid coordinates are shifting. Calibrate the reflective prisms to harness the sun rays. Sustain the meat-cores for sector stability."
                   : "Logic gates corrupted. Restore parity to sync with the grid."
-                }
+                )}
               </p>
             </div>
             <div className="text-[9px] font-mono text-white/30 italic">

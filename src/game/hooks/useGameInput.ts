@@ -70,6 +70,47 @@ export function useGameInput(onInteract: () => void) {
     joyst.vy = 0;
   }, [onInteract]);
 
+  // NEW: Mouse/Touch Canvas Control Logic
+  const bindCanvasInteraction = useCallback((canvas: HTMLCanvasElement, playerRef: React.MutableRefObject<PlayerState>) => {
+    const handlePointerAction = (e: MouseEvent | TouchEvent) => {
+      // Ignore if clicking on joystick area or if joystick is active
+      if (joystickRef.current.active) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+      // Convert screen coords to canvas coords (1000x1000)
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (clientX - rect.left) * scaleX;
+      const y = (clientY - rect.top) * scaleY;
+
+      // Only set target if inside the viewport area (80-920)
+      if (x >= 0 && x <= 1000 && y >= 0 && y <= 1000) {
+        playerRef.current.targetX = x;
+        playerRef.current.targetY = y;
+      }
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      // Check if target is actually the canvas
+      if (e.target === canvas) handlePointerAction(e);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.target === canvas) handlePointerAction(e);
+    };
+
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('touchstart', onTouchStart);
+
+    return () => {
+      canvas.removeEventListener('mousedown', onMouseDown);
+      canvas.removeEventListener('touchstart', onTouchStart);
+    };
+  }, []);
+
   useEffect(() => {
     const onTouchMove = (e: TouchEvent) => {
       if (joystickRef.current.active) handleJoystickMove(e);
@@ -92,6 +133,7 @@ export function useGameInput(onInteract: () => void) {
   return {
     keysPressed,
     joystickRef,
-    handleJoystickStart
+    handleJoystickStart,
+    bindCanvasInteraction
   };
 }
