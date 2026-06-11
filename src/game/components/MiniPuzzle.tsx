@@ -47,9 +47,7 @@ export default function MiniPuzzle({
 
   // DRAG ROTATION LOGIC
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent, id: number) => {
-    // LOCK ROTATION IF SOLVED
     if (activePuzzle.solved) return;
-    
     if (e.cancelable) e.preventDefault();
     setDragMirrorId(id);
   };
@@ -114,18 +112,18 @@ export default function MiniPuzzle({
 
     return (
       <g transform={`translate(${x}, ${y})`}>
-        <circle cx="0" cy="0" r="30" fill={solved ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.05)"} className={solved ? "animate-pulse" : ""} />
+        <circle cx="0" cy="0" r="30" fill={solved ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.05)"} className={solved ? "animate-pulse" : ""} />
         <text x="0" y="8" textAnchor="middle" fontSize="24">{emoji}</text>
-        <rect x="-20" y="-20" width="40" height="40" fill="transparent" stroke={solved ? "#10b981" : "rgba(255,255,255,0.2)"} strokeWidth="2" rx="8" />
+        <rect x="-22" y="-22" width="44" height="44" fill="transparent" stroke={solved ? "#10b981" : "rgba(255,255,255,0.2)"} strokeWidth="3" rx="10" />
       </g>
     );
   };
 
   const sunRayPoints = useMemo(() => {
-    if (!sunPath.path || sunPath.path.length < 2) return "";
+    if (!sunPath.path || sunPath.path.length < 2) return null;
     return sunPath.path
       .filter(pt => isFinite(pt.x) && isFinite(pt.y))
-      .map(pt => `${pt.x},${pt.y}`)
+      .map(pt => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`)
       .join(' ');
   }, [sunPath.path]);
 
@@ -141,31 +139,30 @@ export default function MiniPuzzle({
               width="100%" 
               height="100%" 
               viewBox={`0 0 ${activePuzzle.viewBoxSize} ${activePuzzle.viewBoxSize}`}
-              className={`bg-black/90 border border-white/10 rounded-2xl overflow-hidden touch-none ${activePuzzle.solved ? 'opacity-80' : ''}`}
+              className={`bg-black/90 border border-white/10 rounded-2xl overflow-hidden touch-none ${activePuzzle.solved ? 'opacity-90' : ''}`}
             >
               <defs>
                 <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
                   <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
                 </pattern>
-                <filter id="sunGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="4" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
               </defs>
               <rect width="100%" height="100%" fill="url(#grid)" />
 
-              {/* SUN RAY PATHWAY */}
+              {/* SUN RAY PATHWAY - HIGH CONTRAST RENDERING */}
               {sunRayPoints && (
-                <g filter="url(#sunGlow)">
-                  <polyline points={sunRayPoints} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />
-                  <polyline points={sunRayPoints} fill="none" stroke="#fffce0" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-                  <polyline points={sunRayPoints} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <g>
+                  {/* Outer Glow */}
+                  <polyline points={sunRayPoints} fill="none" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" />
+                  {/* Main Beam */}
+                  <polyline points={sunRayPoints} fill="none" stroke="#fffce0" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse" />
+                  {/* Core Ray */}
+                  <polyline points={sunRayPoints} fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </g>
               )}
 
               {/* EMITTER */}
               <g transform={`translate(${activePuzzle.sunPos.x}, ${activePuzzle.sunPos.y})`}>
-                <circle r="22" fill="rgba(255, 200, 50, 0.2)" className="animate-pulse" />
+                <circle r="22" fill="rgba(255, 200, 50, 0.3)" className="animate-pulse" />
                 <Sun className="w-8 h-8 text-amber-400 -translate-x-4 -translate-y-4" />
               </g>
 
@@ -184,15 +181,15 @@ export default function MiniPuzzle({
                   <circle r="45" fill="transparent" />
                   <line 
                     x1={-m.size/2} y1="0" x2={m.size/2} y2="0" 
-                    stroke={activePuzzle.solved ? "rgba(74, 243, 255, 0.4)" : "#4af3ff"} strokeWidth="8" strokeLinecap="round" 
+                    stroke={activePuzzle.solved ? "rgba(74, 243, 255, 0.5)" : "#4af3ff"} strokeWidth="10" strokeLinecap="round" 
                     className="group-hover:stroke-white transition-colors"
                   />
                   <line 
                     x1={-m.size/2} y1="0" x2={m.size/2} y2="0" 
-                    stroke={activePuzzle.solved ? "rgba(255,255,255,0.4)" : "white"} strokeWidth="2" strokeLinecap="round" 
+                    stroke="white" strokeWidth="2" strokeLinecap="round" 
                   />
-                  <circle cx={m.size/2} cy="0" r="5" fill={activePuzzle.solved ? "rgba(245, 158, 11, 0.4)" : "#f59e0b"} />
-                  <circle cx={-m.size/2} cy="0" r="5" fill={activePuzzle.solved ? "rgba(245, 158, 11, 0.4)" : "#f59e0b"} />
+                  <circle cx={m.size/2} cy="0" r="6" fill={activePuzzle.solved ? "rgba(245, 158, 11, 0.4)" : "#f59e0b"} stroke="#120502" strokeWidth="1" />
+                  <circle cx={-m.size/2} cy="0" r="6" fill={activePuzzle.solved ? "rgba(245, 158, 11, 0.4)" : "#f59e0b"} stroke="#120502" strokeWidth="1" />
                 </g>
               ))}
             </svg>
