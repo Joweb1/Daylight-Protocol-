@@ -1,0 +1,80 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { CharacterState } from '../types';
+
+export interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  life: number;
+  maxLife: number;
+}
+
+export interface GameNPC {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  color: string;
+  shape: 'eye' | 'glitch' | 'fragment' | 'polygon';
+  dialogue: string[];
+  activeDialogueIndex: number;
+  interactionRadius: number;
+  vx: number;
+  vy: number;
+}
+
+export interface GameChallengeNode {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  type: 'reflection' | 'logic';
+  completed: boolean;
+  scoreValue: number;
+  details?: string;
+}
+
+export interface ActiveMiniPuzzle {
+  nodeId: string;
+  type: 'reflection' | 'logic';
+  targetIndex: number;
+  mirrors: number[];
+  outputs: boolean[];
+  solved: boolean;
+}
+
+export interface LaserResult {
+  path: { x: number; y: number }[];
+  solved: boolean;
+}
+
+export interface PlayerState {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  speed: number;
+  targetX: number;
+  targetY: number;
+  orbitAngle: number;
+  eyeExpression: CharacterState;
+}
+
+export interface JoystickState {
+  active: boolean;
+  startX: number;
+  startY: number;
+  curX: number;
+  curY: number;
+  vx: number;
+  vy: number;
+}

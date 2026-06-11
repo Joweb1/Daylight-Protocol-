@@ -20,6 +20,7 @@ export interface DaylightStageDetail {
 // Technical specs and narrative parameters
 export interface SimulationStats {
   daylightRemaining: number; // 0 - 100
+  knowledgeScore: number; // 0 - 100
   cycleSpeed: 'pause' | 'normal' | 'fast';
   curiosityScore: number; // 0 - 100
   humanityScore: number; // 0 - 100
