@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 import { DaylightStage } from '../types';
-import { ALL_CHALLENGE_TEMPLATES, KNOWLEDGE_CAP } from '../game/constants';
+import { ALL_CHALLENGE_TEMPLATES, KNOWLEDGE_CAP, ENDINGS } from '../game/constants';
 import { GameChallengeNode, ActiveMiniPuzzle } from '../game/types';
 import { computeLaserPath, getRandomNonOverlappingPosition } from '../game/utils';
 import { renderGame } from '../game/renderer';
@@ -82,6 +82,26 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
   const { particlesRef, spawnEnergyBursts, updateParticles } = useGameParticles();
   const { npcsRef, challengeNodesRef, updateNpcs } = useGameEntities();
   const { playerRef, updatePhysics } = useGamePhysics();
+
+  // ENDING LOGIC
+  const [showEnding, setShowEnding] = useState<boolean>(false);
+  useEffect(() => {
+    if (stats.daylightRemaining <= 0 && !showEnding) {
+      setShowEnding(true);
+      setIsPlaying(false);
+      triggerChime(110, 55, 2.0, isAudioMuted);
+    }
+  }, [stats.daylightRemaining, showEnding, isAudioMuted, triggerChime]);
+
+  const currentEnding = useMemo(() => {
+    const k = (stats.knowledgeScore / KNOWLEDGE_CAP) * 100;
+    if (k < 50) return ENDINGS.FAILURE;
+    if (k <= 60) return ENDINGS.FRAGMENTED;
+    if (k <= 70) return ENDINGS.OBSERVER;
+    if (k <= 80) return ENDINGS.LEGACY;
+    if (k <= 90) return ENDINGS.TRANSCENDENCE;
+    return ENDINGS.ESCAPE;
+  }, [stats.knowledgeScore]);
 
   // STAGE-BASED BACKGROUND COLORS
   const stageTheme = useMemo(() => {
@@ -585,6 +605,54 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
         />
       )}
 
+      {/* ENDING OVERLAY */}
+      {showEnding && (
+        <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-6 animate-in fade-in zoom-in duration-1000">
+          <div className="bg-[#120806] border-2 border-orange-500/40 rounded-[2.5rem] p-8 max-w-lg w-full text-center space-y-6 shadow-[0_0_100px_rgba(245,158,11,0.2)]">
+            <div className="space-y-2">
+              <div className="inline-block p-4 bg-orange-500/10 rounded-3xl mb-2">
+                {currentEnding.title === "CONSCIOUS_ESCAPE" ? (
+                  <Zap className="w-12 h-12 text-emerald-400 animate-pulse" />
+                ) : (
+                  <Sun className="w-12 h-12 text-orange-500 animate-pulse" />
+                )}
+              </div>
+              <h2 className="text-sm font-mono tracking-[0.3em] text-orange-400/60 uppercase">SIMULATION_TERMINATED</h2>
+              <h3 className="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-orange-500 uppercase">
+                {currentEnding.title}
+              </h3>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <p className="text-sm text-slate-200 font-mono leading-relaxed relative z-10">
+                {currentEnding.description}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-black/40 border border-white/5 rounded-2xl p-4">
+                <span className="text-[10px] font-mono text-white/40 uppercase block mb-1">FINAL_KNOWLEDGE</span>
+                <span className="text-2xl font-black text-emerald-400">{Math.floor(stats.knowledgeScore)}</span>
+              </div>
+              <div className="bg-black/40 border border-white/5 rounded-2xl p-4">
+                <span className="text-[10px] font-mono text-white/40 uppercase block mb-1">SYSTEM_OUTCOME</span>
+                <span className="text-sm font-bold text-orange-300 uppercase">{currentEnding.requirement}</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                localStorage.removeItem('daylight_protocol_save');
+                window.location.reload();
+              }}
+              className="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-slate-950 font-mono text-sm font-black tracking-widest uppercase transition-all rounded-2xl cursor-pointer shadow-[0_0_30px_rgba(245,158,11,0.3)] active:scale-95"
+            >
+              &gt;&gt; RE-INITIALIZE PROTOCOL
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
