@@ -24,7 +24,7 @@ import {
 import { DaylightStage } from '../types';
 import { ALL_CHALLENGE_TEMPLATES, KNOWLEDGE_CAP, ENDINGS } from '../game/constants';
 import { GameChallengeNode, ActiveMiniPuzzle, MirrorData } from '../game/types';
-import { computeSunRayPath, getRandomNonOverlappingPosition } from '../game/utils';
+import { generatePuzzleBlueprint, realizeBlueprint, getRandomNonOverlappingPosition } from '../game/utils';
 import { renderGame } from '../game/renderer';
 
 import MiniPuzzle from '../game/components/MiniPuzzle';
@@ -227,49 +227,33 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
     const knowledgeLevel = (stats.knowledgeScore / KNOWLEDGE_CAP) * 100;
     
     if (node.type === 'reflection') {
-      const mirrorCount = Math.min(10, 2 + Math.floor(knowledgeLevel / 10));
-      const viewBoxSize = mirrorCount > 5 ? 600 : 400;
+      const knowledgeLevel = (stats.knowledgeScore / KNOWLEDGE_CAP) * 100;
       
-      const mirrors: MirrorData[] = [];
-      for (let i = 0; i < mirrorCount; i++) {
-        mirrors.push({
-          id: i,
-          x: 100 + Math.random() * (viewBoxSize - 200),
-          y: 100 + Math.random() * (viewBoxSize - 200),
-          rotation: Math.random() * 360,
-          size: 50
-        });
-      }
+      // STAGE 1: AI ORCHESTRATOR (Designing the blueprint)
+      const blueprint = generatePuzzleBlueprint(knowledgeLevel);
+      
+      const viewBoxSize = blueprint.room_size === 'Large' ? 600 : 400;
+
+      // STAGE 2: PHYSICS REALIZER (Converting blueprint to coordinates)
+      const layout = realizeBlueprint(blueprint, viewBoxSize);
 
       const goalTypes: ('door' | 'meat' | 'fish' | 'pot')[] = ['door', 'meat', 'fish', 'pot'];
       const targetType = goalTypes[Math.floor(Math.random() * goalTypes.length)];
-
-      // Ensure Sun and Goal are not on the same axis and have distance
-      const sunX = 50 + Math.random() * 50;
-      const sunY = 50 + Math.random() * (viewBoxSize - 100);
-      const goalX = viewBoxSize - 100 + Math.random() * 50;
-      let goalY = 50 + Math.random() * (viewBoxSize - 100);
-      
-      // Prevent same horizontal line
-      if (Math.abs(goalY - sunY) < 100) {
-        goalY = (sunY + 200) % (viewBoxSize - 100);
-        if (goalY < 50) goalY = 50;
-      }
 
       setActivePuzzle({
         nodeId: node.id,
         type: 'reflection',
         targetType,
-        sunPos: { x: sunX, y: sunY },
-        goalPos: { x: goalX, y: goalY },
-        mirrors,
+        sunPos: layout.sunPos,
+        goalPos: layout.goalPos,
+        mirrors: layout.mirrors,
         solved: false,
         viewBoxSize
       });
       
       setActiveDialogue({ 
         speaker: node.name, 
-        text: `CALIBRATION REQUIRED. Sector knowledge index: ${Math.floor(knowledgeLevel)}%. Apparatus complexity: ${mirrorCount} prisms.` 
+        text: `[ORCHESTRATOR_LINK_ESTABLISHED] Blueprint: ${blueprint.difficulty} | Topology: ${blueprint.topology}. Sector calibration initialized.` 
       });
     } else {
       setActivePuzzle({

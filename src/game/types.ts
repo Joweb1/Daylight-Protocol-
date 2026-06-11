@@ -66,6 +66,20 @@ export interface LaserResult {
   solved: boolean;
 }
 
+export interface PuzzleBlueprint {
+  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Expert';
+  room_size: 'Small' | 'Medium' | 'Large';
+  source_position: string;
+  target_position: string;
+  required_mirrors: string[];
+  solution_path: string[];
+  decoy_mirrors: string[];
+  topology: string;
+  estimated_moves: number;
+  difficulty_score: number;
+  design_notes: string[];
+}
+
 export interface PlayerState {
   x: number;
   y: number;
