@@ -3,9 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { PlayerState, GameNPC, GameChallengeNode, Particle, ActiveMiniPuzzle } from './types';
+import { PlayerState, GameNPC, GameChallengeNode, Particle } from './types';
 import { DaylightStage, SimulationStats } from '../types';
-import { computeLaserPath } from './utils';
 
 export const renderGame = (
   ctx: CanvasRenderingContext2D,

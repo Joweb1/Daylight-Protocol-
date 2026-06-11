@@ -23,8 +23,8 @@ import {
 
 import { DaylightStage } from '../types';
 import { ALL_CHALLENGE_TEMPLATES, KNOWLEDGE_CAP, ENDINGS } from '../game/constants';
-import { GameChallengeNode, ActiveMiniPuzzle } from '../game/types';
-import { computeLaserPath, getRandomNonOverlappingPosition } from '../game/utils';
+import { GameChallengeNode, ActiveMiniPuzzle, MirrorData } from '../game/types';
+import { computeSunRayPath, getRandomNonOverlappingPosition } from '../game/utils';
 import { renderGame } from '../game/renderer';
 
 import MiniPuzzle from '../game/components/MiniPuzzle';
@@ -200,7 +200,7 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
       setActiveDialogue({
         speaker: nearNPC.name,
         text: dial,
-        actionText: nearNPC.id === 'npc-lux' ? 'Absorb Memory (+5% Freedom)' : undefined
+        actionText: nearNPC.id === 'npc-lux' ? 'Absorb Memory (+50 Knowledge)' : undefined
       });
       player.eyeExpression = 'Reflecting';
       triggerChime(330, 440, 0.3, isAudioMuted);
@@ -217,66 +217,66 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
 
   const handleAcceptChallenge = (node: GameChallengeNode) => {
     setActiveInviteNode(null);
+    const knowledgeLevel = (stats.knowledgeScore / KNOWLEDGE_CAP) * 100;
+    
     if (node.type === 'reflection') {
+      const mirrorCount = Math.min(10, 2 + Math.floor(knowledgeLevel / 10));
+      const viewBoxSize = mirrorCount > 5 ? 600 : 400;
+      
+      const mirrors: MirrorData[] = [];
+      for (let i = 0; i < mirrorCount; i++) {
+        mirrors.push({
+          id: i,
+          x: 100 + Math.random() * (viewBoxSize - 200),
+          y: 100 + Math.random() * (viewBoxSize - 200),
+          rotation: Math.random() * 360,
+          size: 50
+        });
+      }
+
+      const goalTypes: ('door' | 'meat' | 'fish' | 'pot')[] = ['door', 'meat', 'fish', 'pot'];
+      const targetType = goalTypes[Math.floor(Math.random() * goalTypes.length)];
+
       setActivePuzzle({
-        nodeId: node.id, type: 'reflection', targetIndex: 1,
-        mirrors: [0, 1, 3], outputs: [false, false], solved: false,
+        nodeId: node.id,
+        type: 'reflection',
+        targetType,
+        sunPos: { x: 40, y: viewBoxSize / 2 },
+        goalPos: { x: viewBoxSize - 40, y: viewBoxSize / 2 },
+        mirrors,
+        solved: false,
+        viewBoxSize
       });
-      setActiveDialogue({ speaker: node.name, text: "OPTICAL ALIGNMENT REQUIRED. Rotate the active glass mirrors to direct the golden light ray to the receptor node." });
+      
+      setActiveDialogue({ 
+        speaker: node.name, 
+        text: `CALIBRATION REQUIRED. Sector knowledge index: ${Math.floor(knowledgeLevel)}%. Apparatus complexity: ${mirrorCount} prisms.` 
+      });
     } else {
       setActivePuzzle({
-        nodeId: node.id, type: 'logic', targetIndex: 0,
-        mirrors: [0, 0, 0], outputs: [false], solved: false,
+        nodeId: node.id, type: 'logic', targetType: 'door', 
+        sunPos: {x:0, y:0}, goalPos: {x:0, y:0}, mirrors: [], solved: false, viewBoxSize: 400
       });
-      setActiveDialogue({ speaker: node.name, text: "LOGICAL MATRIX SOLSTICE CORRUPTION detected. Engage boolean toggles to establish a true high status output." });
     }
     triggerChime(150, 600, 0.5, isAudioMuted);
     playerRef.current.eyeExpression = 'Solving';
   };
 
+  const handleUpdatePuzzle = (nextPuzzle: ActiveMiniPuzzle) => {
+    setActivePuzzle(nextPuzzle);
+  };
+
   const handleSkipChallenge = (node: GameChallengeNode) => {
-    // If skipped, it doesn't disappear. We just try to spawn another one if possible.
     const currentlyVisibleIds = challengeNodesRef.current.map(n => n.id);
     const nextTemplate = ALL_CHALLENGE_TEMPLATES.find(t => !currentlyVisibleIds.includes(t.id));
-    
     if (nextTemplate && challengeNodesRef.current.length < 5) {
       const pos = getRandomNonOverlappingPosition(challengeNodesRef.current, npcsRef.current, playerRef.current);
       challengeNodesRef.current = [...challengeNodesRef.current, { ...nextTemplate, x: pos.x, y: pos.y }];
       addLog(`>> NEW_CHALLENGE_SPAWNED :: '${nextTemplate.name}' appeared in the chamber!`);
       spawnEnergyBursts(pos.x, pos.y, '#f59e0b', 12);
     }
-    
     setActiveInviteNode(null);
     triggerChime(300, 200, 0.2, isAudioMuted);
-  };
-
-  const handleToggleMirror = (idx: number) => {
-    if (!activePuzzle) return;
-    const nextRotation = [...activePuzzle.mirrors];
-    if (activePuzzle.type === 'reflection') {
-      nextRotation[idx] = (nextRotation[idx] + 1) % 4;
-      triggerChime(440, 880, 0.15, isAudioMuted);
-      handleSpend(1.5);
-    } else {
-      nextRotation[idx] = nextRotation[idx] === 0 ? 1 : 0;
-      triggerChime(300, 600, 0.15, isAudioMuted);
-      handleSpend(1.0);
-    }
-
-    let isSolved = false;
-    if (activePuzzle.type === 'reflection') {
-      isSolved = computeLaserPath(nextRotation).solved;
-    } else {
-      if (nextRotation[0] === 1 && nextRotation[1] === 0 && nextRotation[2] === 1) isSolved = true;
-    }
-
-    setActivePuzzle({ ...activePuzzle, mirrors: nextRotation, solved: isSolved });
-
-    if (isSolved) {
-      triggerChime(600, 1200, 0.8, isAudioMuted);
-      playerRef.current.eyeExpression = 'Celebrating';
-      setActiveDialogue({ speaker: "CHAMBER SYNCHRONIZER", text: "YAHOO! Calibration successful. You may now claim the knowledge points from this sector." });
-    }
   };
 
   const handleClaimKnowledgeAction = () => {
@@ -286,14 +286,11 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
     const solvedNode = challengeNodesRef.current.find(n => n.id === solvedNodeId);
     const scoreValue = solvedNode ? solvedNode.scoreValue : 20;
 
-    // 1. Update scores
     handleClaimKnowledge(scoreValue);
     modifyScore('freedom', 10);
     
-    // 2. Clean up (Actually remove completed challenge)
     challengeNodesRef.current = challengeNodesRef.current.filter(n => n.id !== solvedNodeId);
     
-    // 3. Spawn new challenge
     const currentlyVisibleIds = challengeNodesRef.current.map(n => n.id);
     let nextTemplate = ALL_CHALLENGE_TEMPLATES.find(t => !currentlyVisibleIds.includes(t.id)) || ALL_CHALLENGE_TEMPLATES[Math.floor(Math.random() * ALL_CHALLENGE_TEMPLATES.length)];
     
@@ -323,6 +320,7 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
 
   const handleDialogueAction = () => {
     if (activeDialogue?.speaker === 'Lux-01') {
+      handleClaimKnowledge(50);
       modifyScore('freedom', 12);
       spawnEnergyBursts(playerRef.current.x, playerRef.current.y, '#4af3ff', 15);
       triggerChime(600, 1200, 0.6, isAudioMuted);
@@ -354,15 +352,10 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
     const gameLoop = () => {
       if (isPlaying) {
         if (activePopup === null) {
-          // ACCELERATED DECAY DURING PUZZLE (1% every 2 seconds = 0.00833% per frame @ 60FPS)
-          // Normal decay is 0.005
           const decayRate = activePuzzle ? 0.00833 : 0.005;
-          
           updatePhysics(keysPressed.current, joystickRef.current, canvas.width, canvas.height, handleSpend, spawnEnergyBursts);
           updateNpcs();
           updateParticles();
-          
-          // Apply decay
           handleSpend(decayRate);
         }
 
@@ -510,7 +503,7 @@ export default function MainGame({ onBackToGdd }: MainGameProps) {
                 {activePuzzle && (
                   <MiniPuzzle 
                     activePuzzle={activePuzzle} 
-                    handleToggleMirror={handleToggleMirror} 
+                    handleUpdatePuzzle={handleUpdatePuzzle} 
                     onClaimKnowledge={handleClaimKnowledgeAction}
                   />
                 )}

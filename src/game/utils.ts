@@ -3,74 +3,104 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LaserResult, GameChallengeNode, GameNPC } from './types';
+import { LaserResult, GameChallengeNode, GameNPC, MirrorData } from './types';
 
-// Visual Laser beam mirror reflection tracing algorithm
-export function computeLaserPath(mirrors: number[]): LaserResult {
-  const points: { x: number; y: number }[] = [{ x: 40, y: 40 }];
-  let col = 0;
-  let row = 0;
-  let dx = 1;
-  let dy = 0;
+/**
+ * 360-Degree Continuous Vector Raycasting for Sun Rays
+ */
+export function computeSunRayPath(
+  sunPos: { x: number, y: number },
+  goalPos: { x: number, y: number },
+  mirrors: MirrorData[],
+  viewBoxSize: number
+): LaserResult {
+  const points: { x: number; y: number }[] = [{ ...sunPos }];
+  let currentPos = { ...sunPos };
+  let dir = { x: 1, y: 0 }; // Initial ray direction: Right
   let solved = false;
+  const maxBounces = Math.min(20, mirrors.length + 5);
 
-  for (let step = 0; step < 12; step++) {
-    const colNext = col + dx;
-    const rowNext = row + dy;
+  for (let bounce = 0; bounce < maxBounces; bounce++) {
+    let closestU = Infinity;
+    let closestMirror: MirrorData | null = null;
+    let hitPoint = { x: 0, y: 0 };
 
-    // Check boundaries of our 3x3 grid (each cell is 80x80px)
-    if (colNext < 0 || colNext > 2 || rowNext < 0 || rowNext > 2) {
-      // Shoot beam off-screen a bit for cool visual discharge
-      points.push({
-        x: col * 80 + 40 + dx * 40,
-        y: row * 80 + 40 + dy * 40
-      });
-      break;
+    // 1. Check Intersection with all mirrors
+    for (const m of mirrors) {
+      const angleRad = (m.rotation * Math.PI) / 180;
+      const dx = Math.cos(angleRad) * (m.size / 2);
+      const dy = Math.sin(angleRad) * (m.size / 2);
+      
+      const p1 = { x: m.x - dx, y: m.y - dy };
+      const p2 = { x: m.x + dx, y: m.y + dy };
+
+      // Ray-Segment Intersection Math
+      const x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y;
+      const x3 = currentPos.x, y3 = currentPos.y;
+      const dxRay = dir.x, dyRay = dir.y;
+
+      // Determinant
+      const det = (x2 - x1) * dyRay - (y2 - y1) * dxRay;
+      if (Math.abs(det) < 0.0001) continue;
+
+      const t = ((x3 - x1) * dyRay - (y3 - y1) * dxRay) / det;
+      const u = ((x1 - x3) * (y2 - y1) - (y1 - y3) * (x2 - x1)) / -det;
+
+      if (t >= 0 && t <= 1 && u > 0.01) {
+        if (u < closestU) {
+          closestU = u;
+          closestMirror = m;
+          hitPoint = { x: x3 + dxRay * u, y: y3 + dyRay * u };
+        }
+      }
     }
 
-    col = colNext;
-    row = rowNext;
-    points.push({ x: col * 80 + 40, y: row * 80 + 40 });
+    // 2. Check if Goal is hit BEFORE any mirror
+    const toGoal = { x: goalPos.x - currentPos.x, y: goalPos.y - currentPos.y };
+    const distToGoal = Math.hypot(toGoal.x, toGoal.y);
+    const goalDir = { x: toGoal.x / distToGoal, y: toGoal.y / distToGoal };
+    const dot = dir.x * goalDir.x + dir.y * goalDir.y;
 
-    // Hit Goal (Golden exit door) at col 0, row 1
-    if (col === 0 && row === 1) {
+    // If pointing at goal and nothing is blocking
+    if (dot > 0.9995 && distToGoal < closestU) {
+      points.push({ ...goalPos });
       solved = true;
       break;
     }
 
-    // Mirror deflections check at specific coordinates
-    let currentMirrorIdx = -1;
-    if (col === 2 && row === 0) currentMirrorIdx = 0;
-    else if (col === 2 && row === 2) currentMirrorIdx = 1;
-    else if (col === 0 && row === 2) currentMirrorIdx = 2;
+    // 3. Process Mirror Hit
+    if (closestMirror) {
+      points.push(hitPoint);
+      currentPos = hitPoint;
 
-    if (currentMirrorIdx !== -1) {
-      const rot = mirrors[currentMirrorIdx] !== undefined ? mirrors[currentMirrorIdx] : 0;
-      // Rotations: Even rotations (0 or 2, 0 or 180 deg) represent slanting diagonal from bottom-left to top-right (/)
-      // Odd rotations (1 or 3, 90 or 270 deg) represent slanting diagonal from top-left to bottom-right (\)
-      const slant = (rot % 2 === 0) ? '/' : '\\';
+      // Calculate Reflection Vector
+      const angleRad = (closestMirror.rotation * Math.PI) / 180;
+      // Normal vector is perpendicular to the mirror surface
+      const nx = -Math.sin(angleRad);
+      const ny = Math.cos(angleRad);
+      
+      const dotProd = dir.x * nx + dir.y * ny;
+      dir.x = dir.x - 2 * dotProd * nx;
+      dir.y = dir.y - 2 * dotProd * ny;
 
-      const oldDx = dx;
-      const oldDy = dy;
-
-      if (slant === '/') {
-        if (oldDx === 1 && oldDy === 0) { dx = 0; dy = -1; }
-        else if (oldDx === 0 && oldDy === 1) { dx = -1; dy = 0; }
-        else if (oldDx === -1 && oldDy === 0) { dx = 0; dy = 1; }
-        else if (oldDx === 0 && oldDy === -1) { dx = 1; dy = 0; }
-      } else { // slant is '\'
-        if (oldDx === 1 && oldDy === 0) { dx = 0; dy = 1; }
-        else if (oldDx === 0 && oldDy === 1) { dx = 1; dy = 0; }
-        else if (oldDx === -1 && oldDy === 0) { dx = 0; dy = -1; }
-        else if (oldDx === 0 && oldDy === -1) { dx = -1; dy = 0; }
-      }
+      // Normalize new direction
+      const len = Math.hypot(dir.x, dir.y);
+      dir.x /= len;
+      dir.y /= len;
+    } else {
+      // Ray shoots into boundary
+      points.push({
+        x: currentPos.x + dir.x * viewBoxSize * 2,
+        y: currentPos.y + dir.y * viewBoxSize * 2
+      });
+      break;
     }
   }
 
   return { path: points, solved };
 }
 
-// Generate random coordinates within game bounds (80 to 920) ensuring no overlap with existing entities
+// Generate random coordinates within game bounds (150 to 850) ensuring no overlap
 export function getRandomNonOverlappingPosition(
   existingNodes: GameChallengeNode[],
   npcs: GameNPC[],
@@ -78,7 +108,7 @@ export function getRandomNonOverlappingPosition(
   minDist: number = 150
 ) {
   let attempts = 0;
-  const gameMin = 150; // Keep away from walls
+  const gameMin = 150;
   const gameMax = 850;
 
   while (attempts < 50) {
@@ -86,11 +116,8 @@ export function getRandomNonOverlappingPosition(
     const ry = gameMin + Math.random() * (gameMax - gameMin);
     
     let tooClose = false;
-    
-    // Check player
     if (Math.hypot(rx - player.x, ry - player.y) < minDist) tooClose = true;
     
-    // Check nodes
     if (!tooClose) {
       for (const node of existingNodes) {
         if (Math.hypot(rx - node.x, ry - node.y) < minDist) {
@@ -100,7 +127,6 @@ export function getRandomNonOverlappingPosition(
       }
     }
     
-    // Check NPCs
     if (!tooClose) {
       for (const npc of npcs) {
         if (Math.hypot(rx - npc.x, ry - npc.y) < minDist) {
@@ -114,6 +140,5 @@ export function getRandomNonOverlappingPosition(
     attempts++;
   }
   
-  // Fallback to random if 50 attempts fail (unlikely)
   return { x: gameMin + Math.random() * (gameMax - gameMin), y: gameMin + Math.random() * (gameMax - gameMin) };
 }

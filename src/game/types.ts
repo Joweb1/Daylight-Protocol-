@@ -42,13 +42,23 @@ export interface GameChallengeNode {
   details?: string;
 }
 
+export interface MirrorData {
+  id: number;
+  x: number;
+  y: number;
+  rotation: number; // 0 - 360
+  size: number;
+}
+
 export interface ActiveMiniPuzzle {
   nodeId: string;
   type: 'reflection' | 'logic';
-  targetIndex: number;
-  mirrors: number[];
-  outputs: boolean[];
+  targetType: 'door' | 'meat' | 'fish' | 'pot';
+  sunPos: { x: number; y: number };
+  goalPos: { x: number; y: number };
+  mirrors: MirrorData[];
   solved: boolean;
+  viewBoxSize: number;
 }
 
 export interface LaserResult {
